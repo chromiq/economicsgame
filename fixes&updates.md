@@ -1,4 +1,5 @@
-FIXES
+FIXES 0.1
+
 1. Fix text overlapping eachother in the regions of the countries
 - Smaller text or bigger regions
 2. When you hover over the regions they do pop up which is good but the text inside should also be popping up proportional to the region
@@ -12,7 +13,8 @@ FIXES
 
 
 
-UPDATES
+UPDATES 0.1
+
 1. Make the regions more accurate, replicate real world borders and shapes, also make sure to add in the neighbouring countries' borders
 as well to make it actually seem like the real world, in the cause of aurelia, just make up some other fictional nations and make a nice map as well,
 also make sure to add coastlines and a visible ocean or sea or even small lakes and rivers
@@ -38,5 +40,11 @@ ranking of real gdp, make it minimalist, simple and small, it should not take up
 excited about in the game and to see if you can be the highest gdp in the world or pass your own nation, this would be both in fictional and real world
 parts but not in the historical part, make sure that those countries' gdps grow as well, the rate at which they grow increases with the difficulty
 level of the campaign
-9. Add a cheat menu.......
+9. Add a cheat menu that is only accessible through the use of the code: "aureliacheat1",
+this code will not be visible, into the cheat menu, add things that would make the game easier, more fun, more funny, the cheat menu is for beyond learning economics, it is just for the purpose of the game, as I said, there will only be a chance to enter the admin code in the main menu and from then on the user will have access to the cheat menu throughout their games, the code will have to be re-entered everytime the running instance of the game ends.
+
+END
+
+-------------------------------
+
 
