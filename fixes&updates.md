@@ -86,6 +86,6 @@ UPDATES v0.6
 - Once the world map is done, I want every country on there, but only the playable countries will be highlihted or painted in colors and those will be the only ones where if you click on them it shows the information screen of the country, like its economy's situation, basically the current information screen that you see when picking the countries in the real world part, inspired by Victoria 3
 - All the 30 countries in the top 30 gdp ranking we made will become playable countries in this update
 - Give achievements colors and give them difficulties, the most difficult ones will be uncanny ones, and the easier ones will be canny ones at least for now, so only two groups for now
-- We need to start keeping logs of updates and fixes possibly on the bottom left or right of the game menu screen, users should be able to view it by clicking on it, it should be a long log including everything we have changed, keep it simple and minimalistic and easily understandable, it should not stand out, just a small feature in the bottom left corner
+- We need to start keeping logs of updates and fixes possibly on the bottom left or right of the game menu screen, users should be able to view it by clicking on it, it should be a long log including everything we have changed, keep it simple and minimalistic and easily understandable, it should not stand out, just a small feature in the bottom left corner, make sure to rephrase stuff to make it sound professional
 
 
