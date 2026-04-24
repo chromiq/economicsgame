@@ -48,3 +48,44 @@ END
 -------------------------------
 
 
+UPDATE LOG v0.6
+
+What's new since the last working version
+
+Map backdrops per country (oceans, neighbors with labels, rivers)
+Region hover fixed: text scales with the region, no more overlap
+UK London/South East path reshaped so they don't collide
+20+ achievements, some hidden, persistent across campaigns
+Clickable stat pills at the top open a modal with quarterly chart and an adviser's note tuned to your difficulty
+World GDP ranking (top 30 real economies) accessible from menu AND in-game with your live rank shown in the header
+Difficulty relaxed: win streaks now 4/6/8/10 (was 6/8/10/12)
+Menu backdrop redone with aurora, shooting stars, flickering factory windows, fireflies, drifting birds, rising smoke
+Custom cursor with click ripples
+Hidden cheat menu: type aureliacheat1 anywhere on the main menu to unlock 10 cheats
+
+END
+
+FIXES v0.6
+
+- The economic collapse or the game ending screen is broken and it does not show up, instead, there is a white screen that shows up and stays
+there
+- Some regions are overlapping the name of oceans and seas
+- The white background of the text showing the city name should go up a little bit more in order to not collide with the region's speciality as well as look better
+- Berlin is overlapped by Eastern Germany and is basically hidden, we have to make sure that every region is clearly visible
+
+
+
+
+
+UPDATES v0.6
+
+- Implement the actual world map, this is a whole project by itself because it is the most important part of the game, realism yet simplicity, we need people to see their own country in order to feel some sort of relation to the game which should make it more immersive and fun to play, the problem of regions overlapping other regions or seas or oceans should be fixed by implementing this change into using the actual world map 
+- Make the game into an actual downloadable application, we need this along with a website of the game in which you can download the application on windows and macos
+- Actual custom cursor for the game once we make it into an actual application, making it more immersive
+- Add Turkey as a playable country in historical
+- Once the world map is done, I want every country on there, but only the playable countries will be highlihted or painted in colors and those will be the only ones where if you click on them it shows the information screen of the country, like its economy's situation, basically the current information screen that you see when picking the countries in the real world part, inspired by Victoria 3
+- All the 30 countries in the top 30 gdp ranking we made will become playable countries in this update
+- Give achievements colors and give them difficulties, the most difficult ones will be uncanny ones, and the easier ones will be canny ones at least for now, so only two groups for now
+- We need to start keeping logs of updates and fixes possibly on the bottom left or right of the game menu screen, users should be able to view it by clicking on it, it should be a long log including everything we have changed, keep it simple and minimalistic and easily understandable, it should not stand out, just a small feature in the bottom left corner
+
+
