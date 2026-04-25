@@ -16,6 +16,8 @@ import {
   getStatTip, CHEAT_CODE, CHEATS,
   UPDATES_LOG,
 } from "./extras.js";
+import { WORLD_COUNTRIES, COUNTRY_BY_ISO, WORLD_TOPOJSON_URL } from "./worldMap.js";
+import { ComposableMap, Geographies, Geography, Marker } from "react-simple-maps";
 
 // ============================================================
 // DIFFICULTIES
@@ -1067,7 +1069,7 @@ function MainMenu({ onNewGame, onContinue, onHow, onRanking, onAchievements, onU
           <span>Release Notes</span>
         </button>
         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 text-[10px] tracking-[0.3em] uppercase" style={{ color: "#6a5840" }}>
-          Version 0.7 &middot; A prototype
+          Version 0.7.1 &middot; A prototype
         </div>
       </div>
     </div>
@@ -1300,7 +1302,7 @@ function ModeSelect({ onPick, onBack }) {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-[1100px] w-full">
           {[
             { key: "fiction", icon: Sparkles, title: "Fictional", color: "#c9a961", desc: "Govern Aurelia or build your own nation from scratch." },
-            { key: "nonfiction", icon: Globe, title: "Real World", color: "#7a9960", desc: "Lead a G7 country through the 2026 economy." },
+            { key: "nonfiction", icon: Globe, title: "Real World", color: "#7a9960", desc: "Pick any of the world's top 30 economies from a global map." },
             { key: "historical", icon: History, title: "Historical", color: "#b87240", desc: "Take on famous economic crises from history." },
           ].map((opt) => {
             const Icon = opt.icon;
@@ -1323,21 +1325,298 @@ function ModeSelect({ onPick, onBack }) {
   );
 }
 
+// ============================================================
+// WORLD MAP — v0.7a
+// ============================================================
+// A hand-drawn SVG world map used as the entry point for picking a real-world
+// country. Continents are rendered as parchment-toned silhouettes; each of
+// the top-30 countries gets a marker at its geographic centroid. Playable
+// countries are highlighted in gold; info-only countries sit in a dimmer
+// stone tone so they still feel present but clearly distinct.
+//
+// Clicking a marker opens a Victoria-3-style side panel with GDP, growth,
+// and a one-line economic summary. Playable countries get a primary action
+// button; info-only countries get a tasteful "not yet playable" note.
+
+// ============================================================
+// World map — real GeoJSON via react-simple-maps + world-atlas
+// ============================================================
+//
+// Renders accurate country borders sourced from world-atlas (Natural Earth
+// 110m resolution, ~110KB) loaded over jsdelivr's CDN. Each of the top 30
+// economies is matched by ISO 3166-1 numeric code and styled distinctly:
+// - Playable countries: warm gold (the campaign-ready 8)
+// - Info-only countries: muted brass (data exists but not yet playable)
+// - Other nations: parchment beige (visible but not interactive)
+//
+// On top of the geography we overlay flag markers at each country's
+// centroid, mainly so smaller countries (Belgium, Switzerland, Israel)
+// stay clickable even at this resolution.
+//
+// The projection is geoNaturalEarth1, which preserves shape well at the
+// continental scale and fits cleanly inside a 16:9 viewBox.
+
+function WorldMap({ onSelectCountry, highlightedKey }) {
+  const [hoverIso, setHoverIso] = useState(null);
+
+  // Helper: world-atlas TopoJSON sometimes returns numeric `id`, sometimes
+  // a zero-padded string. Normalize to a 3-char zero-padded string so it
+  // matches our COUNTRY_BY_ISO keys.
+  const normalizeIso = (id) => String(id).padStart(3, "0");
+
+  // Style a country geography based on whether we have data for it.
+  const styleFor = (iso) => {
+    const c = COUNTRY_BY_ISO[iso];
+    const isHover = hoverIso === iso;
+    const isSelected = c && highlightedKey === (c.internalKey || c.name);
+
+    if (!c) {
+      // Country we don't track. Plain parchment, no interaction.
+      return {
+        default: { fill: "#a89572", stroke: "#5a4a34", strokeWidth: 0.4, outline: "none" },
+        hover:   { fill: "#a89572", stroke: "#5a4a34", strokeWidth: 0.4, outline: "none", cursor: "default" },
+        pressed: { fill: "#a89572", stroke: "#5a4a34", strokeWidth: 0.4, outline: "none" },
+      };
+    }
+    if (c.playable) {
+      const baseFill = isSelected ? "#e8c25a" : "#d4a94a";
+      const hoverFill = "#e8c25a";
+      return {
+        default: { fill: baseFill, stroke: "#6a4f1a", strokeWidth: 0.7, outline: "none" },
+        hover:   { fill: hoverFill, stroke: "#6a4f1a", strokeWidth: 0.9, outline: "none", cursor: "pointer" },
+        pressed: { fill: hoverFill, stroke: "#6a4f1a", strokeWidth: 0.9, outline: "none" },
+      };
+    }
+    // Info-only country: muted brass tone.
+    const baseFill = isSelected ? "#9c8456" : "#7d6a4a";
+    return {
+      default: { fill: baseFill, stroke: "#3a2f1f", strokeWidth: 0.5, outline: "none" },
+      hover:   { fill: "#9c8456", stroke: "#3a2f1f", strokeWidth: 0.7, outline: "none", cursor: "pointer" },
+      pressed: { fill: "#9c8456", stroke: "#3a2f1f", strokeWidth: 0.7, outline: "none" },
+    };
+  };
+
+  return (
+    <div className="relative w-full" style={{ background: "linear-gradient(180deg, #1c2a3a 0%, #0f1a26 100%)" }}>
+      {/* Wave overlay — subtle, sits between the sea fill and the map */}
+      <svg className="absolute inset-0 w-full h-full pointer-events-none" preserveAspectRatio="xMidYMid slice">
+        <defs>
+          <pattern id="wm2-waves" x="0" y="0" width="60" height="14" patternUnits="userSpaceOnUse">
+            <path d="M 0 7 Q 15 0 30 7 Q 45 14 60 7" stroke="#2e4358" strokeWidth="0.5" fill="none" opacity="0.45"/>
+          </pattern>
+        </defs>
+        <rect x="0" y="0" width="100%" height="100%" fill="url(#wm2-waves)" />
+      </svg>
+
+      <ComposableMap
+        projection="geoNaturalEarth1"
+        projectionConfig={{ scale: 200, center: [10, 12] }}
+        width={1400}
+        height={700}
+        style={{ width: "100%", height: "auto", display: "block" }}>
+        <Geographies geography={WORLD_TOPOJSON_URL}>
+          {({ geographies }) =>
+            geographies.map((geo) => {
+              const iso = normalizeIso(geo.id);
+              const c = COUNTRY_BY_ISO[iso];
+              return (
+                <Geography
+                  key={geo.rsmKey}
+                  geography={geo}
+                  style={styleFor(iso)}
+                  onMouseEnter={() => c && setHoverIso(iso)}
+                  onMouseLeave={() => setHoverIso(null)}
+                  onClick={() => c && onSelectCountry(c)}
+                />
+              );
+            })
+          }
+        </Geographies>
+
+        {/* Flag markers for the 30 tracked countries — supplements the geography
+            so tiny states (Belgium, Switzerland, Israel) stay obvious and
+            clickable. */}
+        {WORLD_COUNTRIES.map((c) => {
+          const isHover = hoverIso === c.iso;
+          const isSelected = highlightedKey === (c.internalKey || c.name);
+          const showLabel = isHover || isSelected;
+          return (
+            <Marker
+              key={c.iso}
+              coordinates={[c.lng, c.lat]}
+              onMouseEnter={() => setHoverIso(c.iso)}
+              onMouseLeave={() => setHoverIso(null)}
+              onClick={() => onSelectCountry(c)}
+              style={{ default: { cursor: "pointer" } }}>
+              <g>
+                <circle r={isHover || isSelected ? 9 : 6}
+                  fill={c.playable ? "#1a1510" : "#1a1510"}
+                  stroke={c.playable ? "#e8c25a" : "#a89068"}
+                  strokeWidth={1.4}
+                  opacity={0.9} />
+                <text textAnchor="middle" y={4} fontSize={isHover || isSelected ? 11 : 8} style={{ pointerEvents: "none" }}>
+                  {c.flag}
+                </text>
+                {showLabel && (
+                  <g style={{ pointerEvents: "none" }}>
+                    <rect x={-58} y={12} width={116} height={18} rx={3}
+                      fill="#1a1510" opacity={0.94}
+                      stroke={c.playable ? "#e8c25a" : "#a89068"} strokeWidth={0.6} />
+                    <text textAnchor="middle" y={24} fontFamily="Fraunces, serif"
+                      fontSize={10.5} fill="#f2ead7">{c.name}</text>
+                  </g>
+                )}
+              </g>
+            </Marker>
+          );
+        })}
+      </ComposableMap>
+
+      {/* Vignette overlay */}
+      <div className="absolute inset-0 pointer-events-none"
+        style={{ background: "radial-gradient(ellipse at center, transparent 60%, rgba(11,20,29,0.55) 100%)" }} />
+    </div>
+  );
+}
+
+// Victoria-3-inspired side panel describing a country the player has clicked
+// on the world map. Shows GDP, growth, a one-line summary, and a primary
+// action (Play, or "Not yet playable" for countries without full region data).
+function CountryInfoPanel({ country, onPlay, onClose }) {
+  if (!country) return null;
+  const { name, flag, gdp, growth, summary, playable } = country;
+  return (
+    <div className="absolute top-6 right-6 w-[340px] z-20 animate-[slideInRight_0.3s_ease-out]">
+      <div className="rounded-2xl border-2 p-5 shadow-2xl"
+        style={{ backgroundColor: "rgba(26, 21, 16, 0.96)", borderColor: playable ? "#c9a961" : "#5a4a34",
+                 boxShadow: "0 20px 50px rgba(0,0,0,0.6)" }}>
+        <div className="flex items-start gap-3 mb-3">
+          <div className="text-[42px] leading-none">{flag}</div>
+          <div className="flex-1">
+            <div className="font-[Fraunces] text-[22px] leading-tight" style={{ color: "#f2ead7" }}>{name}</div>
+            <div className="text-[10px] uppercase tracking-[0.22em] mt-0.5"
+              style={{ color: playable ? "#c9a961" : "#a89068" }}>
+              {playable ? "Playable · 2026" : "Info only"}
+            </div>
+          </div>
+          <button onClick={onClose} className="text-amber-200/50 hover:text-amber-100 transition-colors">
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 my-4">
+          <div className="rounded-lg border p-2" style={{ borderColor: "#3a2f1f" }}>
+            <div className="text-[9px] uppercase tracking-[0.2em]" style={{ color: "#a89068" }}>Nominal GDP</div>
+            <div className="font-[Fraunces] text-[16px]" style={{ color: "#f2ead7" }}>
+              {gdp >= 1000 ? `$${(gdp / 1000).toFixed(1)}T` : `$${gdp}B`}
+            </div>
+          </div>
+          <div className="rounded-lg border p-2" style={{ borderColor: "#3a2f1f" }}>
+            <div className="text-[9px] uppercase tracking-[0.2em]" style={{ color: "#a89068" }}>Trend growth</div>
+            <div className="font-[Fraunces] text-[16px]" style={{ color: "#f2ead7" }}>
+              {(growth * 100).toFixed(1)}%
+            </div>
+          </div>
+        </div>
+
+        <p className="text-[12px] leading-relaxed italic mb-4" style={{ color: "#d4c090" }}>
+          {summary}
+        </p>
+
+        {playable ? (
+          <button onClick={() => onPlay(country)}
+            className="w-full rounded-xl py-3 border-2 transition-all hover:scale-[1.02] hover:-translate-y-0.5 flex items-center justify-center gap-2"
+            style={{ borderColor: "#c9a961", backgroundColor: "#c9a96122", color: "#f2ead7" }}>
+            <Crown size={14} style={{ color: "#c9a961" }} />
+            <span className="font-[Fraunces] text-[13px] tracking-[0.2em] uppercase">Play as {name}</span>
+          </button>
+        ) : (
+          <div className="rounded-xl border-2 border-dashed p-3 text-center"
+            style={{ borderColor: "#5a4a34" }}>
+            <div className="text-[10.5px] uppercase tracking-[0.18em] mb-1" style={{ color: "#a89068" }}>Coming in a future update</div>
+            <div className="text-[11px] italic" style={{ color: "#8a7860" }}>
+              Region data still being authored for this country.
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function CountryPicker({ mode, onSelect, onBack, onCustom }) {
   const fictional = [COUNTRIES.aurelia];
   // Filter out scenario-only countries (e.g., Turkey in v0.7) so they don't
   // appear in the real-world picker; they live only inside the scenario flow.
   const nonfictional = Object.values(COUNTRIES).filter(c => c.kind === "nonfiction" && !c.scenarioOnly);
-  const visible = mode === "fiction" ? fictional : nonfictional;
+
+  // --------------------- Real-world world-map path ---------------------
+  const [selectedWorldCountry, setSelectedWorldCountry] = useState(null);
+  if (mode === "nonfiction") {
+    const handleWorldClick = (country) => {
+      setSelectedWorldCountry(country);
+    };
+    const handlePlay = (country) => {
+      if (country.playable && country.internalKey) onSelect(country.internalKey);
+    };
+    return (
+      <div className="fixed inset-0 bg-[#0f0c08] overflow-hidden">
+        <MenuBackdrop />
+        <div className="relative z-10 h-full flex flex-col items-center p-6 animate-[fadeIn_0.4s_ease-out]">
+          <div className="text-center mb-4">
+            <div className="text-[11px] uppercase tracking-[0.4em] mb-2" style={{ color: "#c9a961" }}>Select a nation</div>
+            <h2 className="font-[Fraunces] text-[34px]" style={{ color: "#f2ead7" }}>Real World · 2026</h2>
+            <div className="text-[11px] italic mt-1" style={{ color: "#a89068" }}>
+              The world's top 30 economies. Gold markers are playable today; stone markers are info-only for now.
+            </div>
+          </div>
+          <div className="relative w-full max-w-[1400px] flex-1 flex items-center justify-center">
+            <div className="w-full relative">
+              <div className="rounded-2xl border-2 border-amber-900/40 overflow-hidden"
+                style={{ boxShadow: "0 0 0 1px #c9a96133 inset, 0 20px 60px rgba(0,0,0,0.6)" }}>
+                <WorldMap onSelectCountry={handleWorldClick}
+                  highlightedKey={selectedWorldCountry?.internalKey || selectedWorldCountry?.name} />
+              </div>
+              {selectedWorldCountry && (
+                <CountryInfoPanel country={selectedWorldCountry}
+                  onPlay={handlePlay}
+                  onClose={() => setSelectedWorldCountry(null)} />
+              )}
+            </div>
+          </div>
+          <div className="flex items-center justify-between w-full max-w-[1400px] mt-3">
+            <button onClick={onBack} className="text-[11px] uppercase tracking-[0.2em] hover:text-amber-100 transition-colors" style={{ color: "#a89068" }}>&larr; Back</button>
+            <div className="text-[10px] flex items-center gap-4" style={{ color: "#a89068" }}>
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: "#d4a94a", border: "1px solid #6a4f1a" }} />
+                Playable
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: "#7d6a4a", border: "1px solid #3a2f1f" }} />
+                Info only
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: "#a89572", border: "1px solid #5a4a34" }} />
+                Other nations
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // --------------------- Fiction path (unchanged) ---------------------
+  const visible = fictional;
   return (
     <div className="fixed inset-0 bg-[#0f0c08] overflow-y-auto">
       <MenuBackdrop />
       <div className="relative z-10 min-h-full flex flex-col items-center justify-center p-6 py-12 animate-[fadeIn_0.4s_ease-out]">
         <div className="text-center mb-6">
           <div className="text-[11px] uppercase tracking-[0.4em] mb-2" style={{ color: "#c9a961" }}>Select a nation</div>
-          <h2 className="font-[Fraunces] text-[38px]" style={{ color: "#f2ead7" }}>{mode === "fiction" ? "Fictional Nations" : "Real World · 2026"}</h2>
+          <h2 className="font-[Fraunces] text-[38px]" style={{ color: "#f2ead7" }}>Fictional Nations</h2>
         </div>
-        <div className={`grid ${mode === "nonfiction" ? "grid-cols-2 md:grid-cols-3" : "grid-cols-2"} gap-4 max-w-[1100px] w-full`}>
+        <div className="grid grid-cols-2 gap-4 max-w-[1100px] w-full">
           {visible.map((c) => (
             <button key={c.key} onClick={() => onSelect(c.key)}
               className="group text-left rounded-2xl border-2 p-5 bg-stone-950/70 hover:bg-stone-900 hover:scale-[1.03] hover:-translate-y-1 transition-all duration-200"
@@ -1360,20 +1639,18 @@ function CountryPicker({ mode, onSelect, onBack, onCustom }) {
               </div>
             </button>
           ))}
-          {mode === "fiction" && (
-            <button onClick={onCustom}
-              className="group text-left rounded-2xl border-2 border-dashed p-5 bg-stone-950/40 hover:bg-stone-900/60 hover:scale-[1.03] hover:-translate-y-1 transition-all duration-200"
-              style={{ borderColor: "#c9a96144" }}>
-              <div className="flex items-start gap-3 mb-3">
-                <Plus size={26} style={{ color: "#c9a961" }} strokeWidth={1.5} />
-                <div>
-                  <div className="font-[Fraunces] text-[20px]" style={{ color: "#f2ead7" }}>Create Your Own</div>
-                  <div className="text-[10.5px] uppercase tracking-[0.18em] italic" style={{ color: "#c9a961" }}>Custom fictional nation</div>
-                </div>
+          <button onClick={onCustom}
+            className="group text-left rounded-2xl border-2 border-dashed p-5 bg-stone-950/40 hover:bg-stone-900/60 hover:scale-[1.03] hover:-translate-y-1 transition-all duration-200"
+            style={{ borderColor: "#c9a96144" }}>
+            <div className="flex items-start gap-3 mb-3">
+              <Plus size={26} style={{ color: "#c9a961" }} strokeWidth={1.5} />
+              <div>
+                <div className="font-[Fraunces] text-[20px]" style={{ color: "#f2ead7" }}>Create Your Own</div>
+                <div className="text-[10.5px] uppercase tracking-[0.18em] italic" style={{ color: "#c9a961" }}>Custom fictional nation</div>
               </div>
-              <div className="text-[11.5px] leading-relaxed" style={{ color: "#d4c090" }}>Name your country and pick an archetype.</div>
-            </button>
-          )}
+            </div>
+            <div className="text-[11.5px] leading-relaxed" style={{ color: "#d4c090" }}>Name your country and pick an archetype.</div>
+          </button>
         </div>
         <button onClick={onBack} className="mt-8 text-[11px] uppercase tracking-[0.2em]" style={{ color: "#a89068" }}>&larr; Back</button>
       </div>
