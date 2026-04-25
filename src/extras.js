@@ -367,6 +367,24 @@ export const CHEATS = [
 
 export const UPDATES_LOG = [
   {
+    version: "0.7.1",
+    date: "Apr 2026",
+    entries: [
+      { type: "add", text: "World map upgraded to use real country borders sourced from Natural Earth via the world-atlas dataset. Every nation appears in its true geographic shape." },
+      { type: "tune", text: "Country geographies now carry the parchment palette directly. Playable countries render in warm gold, info-only countries in muted brass, and the rest of the world in a softer parchment beige." },
+      { type: "tune", text: "Flag markers retained as a clickability aid for smaller economies, with hover labels for quick identification." },
+    ],
+  },
+  {
+    version: "0.7a",
+    date: "Apr 2026",
+    entries: [
+      { type: "add", text: "World map introduced as the entry point for picking a real-world country. The top 30 economies are visible as markers on a stylized global view." },
+      { type: "add", text: "Country info panels reveal economic context on click. Gold markers launch a campaign directly; stone markers display country details while full region data is authored." },
+      { type: "tune", text: "Real-world country picker replaced the earlier card grid to support the expanded selection." },
+    ],
+  },
+  {
     version: "0.7",
     date: "Apr 2026",
     entries: [
