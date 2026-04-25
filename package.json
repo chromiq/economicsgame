@@ -12,7 +12,9 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "recharts": "^2.12.7",
-    "lucide-react": "^0.400.0"
+    "lucide-react": "^0.400.0",
+    "react-simple-maps": "^3.0.0",
+    "d3-geo": "^3.1.1"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.1",
